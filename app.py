@@ -138,8 +138,11 @@ with tab1:
                 weights_values = weights.to_numpy().flatten()
                 criteria_types_values = np.array(criteria_types)
 
-                if len(weights_values) != num_criteria:
-                    st.error("Number of weights must match number of criteria")
+                # Validate if the decision matrix has non-zero values and weights are not default
+                if np.all(decision_matrix_values == 0):
+                    st.error("Please fill in the Decision Matrix with meaningful values (non-zero).")
+                elif np.all(weights_values == 1):
+                    st.error("Please adjust the weights to reflect their importance, not all weights should be 1.")
                 else:
                     # Step 1: Normalisasi
                     normalized_matrix, weighted_matrix, scores = saw_method(decision_matrix_values, weights_values, criteria_types_values)
@@ -151,22 +154,22 @@ with tab1:
                     st.subheader("Step 2: Weighted Normalized Decision Matrix")
                     st.write(pd.DataFrame(weighted_matrix, columns=decision_matrix.columns))
                     
-                    st.subheader("SAW Final Scores")
-                    st.write(pd.DataFrame({"Alternatives": [f"Alternative {i+1}" for i in range(num_alternatives)], "Scores": scores}))
+                    # Menambahkan kolom rank berdasarkan score dan sorting
+                    results_df = pd.DataFrame({"Alternatives": [f"Alternative {i+1}" for i in range(num_alternatives)], 
+                                               "Scores": scores})
+                    results_df["Rank"] = results_df["Scores"].rank(ascending=False, method='min')
+                    results_df = results_df.sort_values(by="Rank")  # Sorting berdasarkan Rank
+                    
+                    st.subheader("SAW Final Scores with Ranking (Sorted)")
+                    st.write(results_df)
 
-                    # Visualisasi Hasil dalam bentuk Bar Chart
-                    st.subheader("Visualization of SAW Scores")
-                    fig, ax = plt.subplots()
-                    ax.bar([f"Alternative {i+1}" for i in range(num_alternatives)], scores)
-                    ax.set_xlabel("Alternatives")
-                    ax.set_ylabel("Scores")
-                    ax.set_title("SAW Final Scores per Alternative")
-                    st.pyplot(fig)
+                    # Kesimpulan alternatif terbaik
+                    best_alternative = results_df.iloc[0]["Alternatives"]
+                    st.markdown(f"**Conclusion: The best alternative is {best_alternative}**")
 
             except Exception as e:
                 st.error(f"Error: {e}")
 
-# 2. WP Tab
 with tab2:
     st.header("Weighted Product (WP)")
     num_criteria = st.number_input(
@@ -178,63 +181,72 @@ with tab2:
         st.subheader("Decision Matrix")
         decision_matrix = pd.DataFrame(np.zeros((num_alternatives, num_criteria)),
                                        columns=[f"Criterion {i+1}" for i in range(num_criteria)])
-        decision_matrix = st.data_editor(
-            decision_matrix, key="wp_decision_matrix")
+        decision_matrix = st.data_editor(decision_matrix, key="wp_decision_matrix")
 
         st.subheader("Weights")
         weights = pd.DataFrame(np.ones((1, num_criteria)),
                                columns=decision_matrix.columns)
         weights = st.data_editor(weights, key="wp_weights")
 
-        st.subheader("Criterion Type (Cost/Benefit)")
+        st.subheader("Tipe Kriteria (Keuntungan/Biaya)")
 
-        # List to store criteria types: 1 for Benefit, -1 for Cost
+        # List to store criteria types: 1 for Keuntungan, -1 for Biaya
         criteria_types = []
 
         # Loop through criteria and create a selectbox for each
         for i in range(num_criteria):
             criteria_type = st.selectbox(
-                f"Select for Criterion {i+1}", ["Benefit", "Cost"], key=f"wp_criteria_type_{i}")
-            criteria_types.append(1 if criteria_type == "Benefit" else -1)
+                f"Pilih untuk Kriteria {i+1}", ["Keuntungan", "Biaya"], key=f"wp_criteria_type_{i}")
+            criteria_types.append(1 if criteria_type == "Keuntungan" else -1)
 
         if st.button("Calculate WP", key="wp_calculate"):
             try:
                 decision_matrix_values = decision_matrix.to_numpy()
                 weights_values = weights.to_numpy().flatten()
 
-                # Adjust weights based on Cost/Benefit
-                for i in range(num_criteria):
-                    if criteria_types[i] == -1:  # If "Cost", convert weight to negative
-                        weights_values[i] = -abs(weights_values[i])
-
-                if len(weights_values) != num_criteria:
-                    st.error("Number of weights must match number of criteria")
+                # Check if the decision matrix has non-zero values and weights are not default
+                if np.all(decision_matrix_values == 0):
+                    st.error("Please fill in the Decision Matrix with meaningful values (non-zero).")
+                elif np.all(weights_values == 1):
+                    st.error("Please adjust the weights to reflect their importance, not all weights should be 1.")
                 else:
-                    # Step 1: Calculate WP scores (S vector)
-                    scores = wp_method(decision_matrix_values, weights_values)
+                    # Adjust weights based on Keuntungan/Biaya
+                    for i in range(num_criteria):
+                        if criteria_types[i] == -1:  # If "Biaya", convert weight to negative
+                            weights_values[i] = -abs(weights_values[i])
 
-                    # Step 2: Calculate V vector (normalized scores)
-                    total_sum = np.sum(scores)
-                    V = scores / total_sum
+                    if len(weights_values) != num_criteria:
+                        st.error("Number of weights must match number of criteria")
+                    else:
+                        # Step 1: Calculate WP scores (S vector)
+                        scores = wp_method(decision_matrix_values, weights_values)
 
-                    # Step 3: Ranking based on V vector
-                    rankings = np.argsort(-V) + 1  # Sort in descending order, +1 for ranking 1-based
+                        # Step 2: Calculate V vector (normalized scores)
+                        total_sum = np.sum(scores)
+                        V = scores / total_sum
 
-                    # Display results in a combined table
-                    results_df = pd.DataFrame({
-                        'Alternative': [f'Alternative {i+1}' for i in range(num_alternatives)],
-                        'S (WP Score)': scores,
-                        'V (Normalized Score)': V,
-                        'Ranking': rankings
-                    }).sort_values(by='Ranking')
+                        # Step 3: Ranking based on V vector
+                        rankings = np.argsort(-V) + 1  # Sort in descending order, +1 for ranking 1-based
 
-                    # Show combined results in one table
-                    st.write(results_df)
+                        # Display results in a combined table
+                        results_df = pd.DataFrame({
+                            'Alternative': [f'Alternative {i+1}' for i in range(num_alternatives)],
+                            'S (WP Score)': scores,
+                            'V (Normalized Score)': V,
+                            'Ranking': rankings
+                        }).sort_values(by='Ranking')
+
+                        # Show combined results in one table
+                        st.write(results_df)
+
+                        # Conclusion for the best alternative
+                        best_alternative = results_df.iloc[0]["Alternative"]
+                        st.markdown(f"**Conclusion: The best alternative is {best_alternative}**")
 
             except Exception as e:
                 st.error(f"Error: {e}")
 
-# 3. TOPSIS Tab
+# TOPSIS Tab
 with tab3:
     st.header("Technique for Order of Preference by Similarity to Ideal Solution (TOPSIS)")
     num_criteria = st.number_input("Number of criteria", min_value=2, max_value=10, value=3, key="topsis_num_criteria")
@@ -262,8 +274,11 @@ with tab3:
                 weights_values = weights.to_numpy().flatten()
                 criteria_types_values = np.array(criteria_types)
 
-                if len(weights_values) != num_criteria:
-                    st.error("Number of weights must match number of criteria")
+                # Check if decision matrix and weights are properly filled
+                if np.all(decision_matrix_values == 0):
+                    st.error("Please fill in the Decision Matrix with meaningful values (non-zero).")
+                elif np.all(weights_values == 1):
+                    st.error("Please adjust the weights to reflect their importance, not all weights should be 1.")
                 else:
                     # Step by step calculations
                     normalized_matrix, weighted_matrix, ideal_best, ideal_worst, distance_best, distance_worst, scores = topsis_method(
@@ -294,23 +309,28 @@ with tab3:
                     }, index=[f"Alternative {i+1}" for i in range(num_alternatives)])
                     st.write(separation_df)
 
-                    # Step 5: Hasil Perhitungan Kedekatan dengan Nilai Preferensi
-                    st.subheader("Step 5: Nilai Preferensi")
-                    st.write(pd.DataFrame({"Alternatives": [f"Alternative {i+1}" for i in range(num_alternatives)], "Scores": scores}))
+                    # Step 5: Hasil Perhitungan Kedekatan dengan Nilai Preferensi dan Ranking
+                    st.subheader("Step 5: Nilai Preferensi dan Ranking")
+                    preference_df = pd.DataFrame({
+                        "Alternatives": [f"Alternative {i+1}" for i in range(num_alternatives)],
+                        "Scores": scores
+                    })
+                    
+                    # Sorting based on scores in descending order
+                    preference_df['Rank'] = preference_df['Scores'].rank(ascending=False, method='min')
+                    preference_df = preference_df.sort_values(by='Scores', ascending=False)
 
-                    # Visualisasi hasil dalam bentuk bar chart
-                    st.subheader("Visualization of TOPSIS Scores")
-                    fig, ax = plt.subplots()
-                    ax.bar([f"Alternative {i+1}" for i in range(num_alternatives)], scores)
-                    ax.set_xlabel("Alternatives")
-                    ax.set_ylabel("Scores")
-                    ax.set_title("TOPSIS Final Scores per Alternative")
-                    st.pyplot(fig)
+                    # Display the sorted table
+                    st.write(preference_df)
+
+                    # Conclusion for the best alternative
+                    best_alternative = preference_df.iloc[0]["Alternatives"]
+                    st.markdown(f"**Conclusion: The best alternative is {best_alternative}**")
 
             except Exception as e:
                 st.error(f"Error: {e}")
 
-# 4. AHP Tab
+# AHP Tab
 with tab4:
     st.header("Analytic Hierarchy Process (AHP)")
 
@@ -355,11 +375,11 @@ with tab4:
 
         if st.button("Calculate AHP", key="ahp_calculate"):
             try:
-                # Calculate AHP for criteria
+                # Ensure the matrices are filled in properly
                 criteria_matrix_values = criteria_matrix.to_numpy()
 
-                if criteria_matrix_values.shape != (num_criteria, num_criteria):
-                    st.error("Matrix must be square")
+                if np.all(criteria_matrix_values == 1):
+                    st.error("Please fill in the Pairwise Comparison Matrix with meaningful values.")
                 else:
                     # Calculate priority vector for criteria
                     priority_vector, normalized_matrix, criteria_sum = ahp_method(criteria_matrix_values)
@@ -405,7 +425,6 @@ with tab4:
                     st.subheader("Normalized Priority Vector")
                     st.write(normalized_priority_df)
 
-
                     # Calculate λ_max, CI, CR
                     lambda_max, CI, CR = calculate_consistency(criteria_matrix_values, priority_vector)
 
@@ -442,6 +461,10 @@ with tab4:
                     }).sort_values(by='Ranking')
 
                     st.write(final_results_df)
+
+                    # Conclusion for the best alternative
+                    best_alternative = final_results_df.iloc[0]["Alternative"]
+                    st.markdown(f"**Conclusion: The best alternative is {best_alternative}**")
 
             except Exception as e:
                 st.error(f"Error: {e}")
