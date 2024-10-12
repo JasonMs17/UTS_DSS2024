@@ -5,19 +5,43 @@ import numpy as np
 
 markdown_styling = """
 <style>
+
 [data-testid="stMain"] {
-    background-image: url("https://cdn.vectorstock.com/i/500p/78/48/background-technology-vector-51857848.avif");
-    
+    background-image: url("https://wallpapercave.com/wp/wp2197012.jpg");
+}
+
+[data-testid="stSidebarContent"] {
+    background-image: url("https://i.pinimg.com/736x/d7/a4/cd/d7a4cdb7da730fbd335a8627bb863f60.jpg");
 }
 
 [data-testid="stVerticalBlock"] {
-    background-color: #fff;
+    color: #fff !important;
     padding: 30px;
     border-radius: 10px;
 }
 
+h1, h2, h3, p {
+    color: #fff;
+}
+
+[data-testid="stButton"] p {
+    color: #949494 !important;
+}
+
 [data-testid="stHeader"] {
     background-color: rgba(0, 0, 0, 0);
+}
+
+[data-testid="stNumberInputContainer"] {
+    width: 90%;
+}
+
+[data-testid="stSelectbox"] {
+    width: 90% !important;
+}
+
+[data-testid="stAlertContainer"] {
+    width: 90% !important;
 }
 </style>
 """
@@ -108,10 +132,11 @@ def calculate_consistency(criteria_matrix, priority_vector):
 st.title("Decision Support System (DSS) Calculator")
 
 # Tab layout
-tab1, tab2, tab3, tab4 = st.tabs(["SAW", "WP", "TOPSIS", "AHP"])
+with st.sidebar.expander("Choose a Method"):
+    menu = st.radio("Methods", ["SAW", "WP", "TOPSIS", "AHP"])
 
 # 1. SAW Tab
-with tab1:
+if menu == "SAW":
     st.header("Simple Additive Weighting (SAW)")
     num_criteria = st.number_input("Number of criteria", min_value=2, max_value=10, value=3, key="saw_num_criteria")
     num_alternatives = st.number_input("Number of alternatives", min_value=2, max_value=10, value=3, key="saw_num_alternatives")
@@ -170,7 +195,7 @@ with tab1:
             except Exception as e:
                 st.error(f"Error: {e}")
 
-with tab2:
+if menu == "WP":
     st.header("Weighted Product (WP)")
     num_criteria = st.number_input(
         "Number of criteria", min_value=2, max_value=10, value=3, key="wp_num_criteria")
@@ -247,7 +272,7 @@ with tab2:
                 st.error(f"Error: {e}")
 
 # TOPSIS Tab
-with tab3:
+if menu == "TOPSIS":
     st.header("Technique for Order of Preference by Similarity to Ideal Solution (TOPSIS)")
     num_criteria = st.number_input("Number of criteria", min_value=2, max_value=10, value=3, key="topsis_num_criteria")
     num_alternatives = st.number_input("Number of alternatives", min_value=2, max_value=10, value=3, key="topsis_num_alternatives")
@@ -331,7 +356,7 @@ with tab3:
                 st.error(f"Error: {e}")
 
 # AHP Tab
-with tab4:
+if menu == "AHP":
     st.header("Analytic Hierarchy Process (AHP)")
 
     # AHP Comparison Values Guide
